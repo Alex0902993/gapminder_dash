@@ -461,16 +461,19 @@ server <- function(input, output) {
     return(p2)
   })
   
-  # Difference subset
-  diff_df <- gapminder |> 
-    filter(year == 1952 | year == 2007) |> 
-    pivot_wider(names_from = year, 
-                values_from = lifeExp,
-                id_cols = country,
-                names_prefix = "lifeExp_") |>
+  # Dumbbell Plots
+  
+  ## Difference subset
+  diff_df <- gapminder |>
+    filter(year == 1952 | year == 2007) |>  
+    pivot_wider(id_cols = country,
+                names_prefix = "lifeExp_",
+                names_from = year,
+                values_from = lifeExp) |>
     mutate(
       diff = lifeExp_2007 - lifeExp_1952
-    )
+    ) 
+
 
   output$plot_dumbbell_largest <- renderPlot({
     
@@ -513,8 +516,6 @@ server <- function(input, output) {
     
   })
   
-  # Dumbbell plots
-  
   
   output$plot_dumbbell_smallest <- renderPlot({
     
@@ -524,13 +525,10 @@ server <- function(input, output) {
       distinct(country, .keep_all = TRUE)
     
     ## Lowest diffs
-    smallest_change_countries |> 
-      ggplot() +
-      geom_segment(aes(y = reorder(country, abs(lifeExp_2007 - lifeExp_1952)), 
-                       yend = reorder(country, abs(lifeExp_2007 - lifeExp_1952)),
-                       x = lifeExp_1952, xend = lifeExp_2007)) +
-      geom_point(aes(x = lifeExp_1952, y = reorder(country, abs(lifeExp_2007 - lifeExp_1952)))) +
-      geom_point(aes(x = lifeExp_2007, y = reorder(country, abs(lifeExp_2007 - lifeExp_1952))))
+    smallest_change_countries <- diff_df |> 
+      arrange(desc(diff)) |> 
+      slice_max(n = 10, order_by = -diff) |> 
+      distinct(country, .keep_all = TRUE)
     
     ## biggest diffs plot
     smallest_change_countries |> 
