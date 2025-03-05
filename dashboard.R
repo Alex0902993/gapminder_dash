@@ -3,13 +3,10 @@
 
 ### TO-DO ###
 
-#✅ 1 Make a ghghlight (whole gapminder must be used) 
-#   1a Correct that when a country highlighted already exist on the plot, it appears on the top not in the middle ❌
-#✅ 2 Make a second abItem with lineplot (also with highlight) - two countries to compare
-#✅ 3 On the third tbaItem, make a dumbebll plot (1950-2007, 10 highest / lowest)
-#   4 Put the titles of plots and context to the actual box titles, it would be nicer
-#   5 Make dumbbell plot customizable - but in what way? (How many top and lowest countries to show?)
-#   6 Add average numbers to value boxes first page
+#   Correct that when a country highlighted already exist on the plot, it appears on the top not in the middle ❌
+#   Make dumbbell plot customizable - but in what way? (How many top and lowest countries to show?)
+#   dd value boxes to the second tab (chosen countries and the average)
+#   To dumbell - add which to show (lowest or highest) and how many countries per plot
 #####
 
 # Packages
@@ -85,7 +82,7 @@ my_colors <- colorRampPalette(brewer.pal(12, "Set3"))(20)
 ## Header
 header <- dashboardHeader(
   title = "Life Expectancy"
-  #  ,controlbarIcon = icon("circle-info")) # only if left sidebyr exists
+  #  ,controlbarIcon = icon("circle-info")) # only if left sidebar exists
 )
 ## Sidebar
 sidebar <- dashboardSidebar(
@@ -258,15 +255,15 @@ server <- function(input, output) {
 
   # Reactive expression for top/bottom 10 countries
   gap_full <- reactive({
-    gap_min <- gapminder %>%
-      filter(year == chosen_year()) %>%
+    gap_min <- gapminder |>
+      filter(year == chosen_year()) |>
       slice_min(n = 10, order_by = lifeExp)
 
-    gap_max <- gapminder %>%
-      filter(year == chosen_year()) %>%
+    gap_max <- gapminder |>
+      filter(year == chosen_year()) |>
       slice_max(n = 10, order_by = lifeExp)
 
-    df <- bind_rows(gap_max, gap_min) %>%
+    df <- bind_rows(gap_max, gap_min) |>
       mutate(
         high_low = factor(c(rep("high", 10), rep("low", 10)))
       )
@@ -291,10 +288,37 @@ server <- function(input, output) {
 
   # Reactive expression for world average life expectancy
   that_year_avg <- reactive({
-    gapminder %>%
-      filter(year == chosen_year()) %>%
-      summarize(M = round(mean(lifeExp), 2)) %>%
+    gapminder |> 
+      filter(year == chosen_year()) |>
+      summarize(M = round(mean(lifeExp), 2)) |>
       pull(M)
+  })
+  
+  # Reactive expressions for the highest and lowest expectancy (value and country)
+  that_year_max <- reactive({
+    gapminder |> 
+      filter(year == chosen_year()) |>
+      slice_max(order_by = lifeExp) |> 
+      pull(lifeExp)
+  })
+  
+  
+  that_year_min <- reactive({
+    gapminder |> 
+      filter(year == chosen_year()) |>
+      slice_min(order_by = lifeExp) |> 
+      pull(lifeExp)
+  })
+  
+  ## Highest and lowest country
+  country_max <- reactive({
+    gap_full() |> slice_max(order_by = lifeExp) |>
+      pull(country)
+  })
+  
+  country_min <- reactive({
+    gap_full() |> slice_min(order_by = lifeExp) |>
+      pull(country)
   })
 
 
@@ -312,8 +336,7 @@ server <- function(input, output) {
   # Render highest country and lowest country value boxes
   output$highest_country <- renderValueBox({
     valueBox(
-      value = gap_full() |> slice_max(order_by = lifeExp) |>
-        pull(country),
+      value = paste(country_max(), round(that_year_max(), 1)),
       subtitle = "Highest Life Expectancy",
       color = "green",
       icon = icon("up-long")
@@ -322,9 +345,8 @@ server <- function(input, output) {
 
   output$lowest_country <- renderValueBox({
     valueBox(
-      value = gap_full() |> slice_min(order_by = lifeExp) |>
-        pull(country),
-      subtitle = "Lowest Life Expectancy",
+      value = paste(country_min(), round(that_year_min(), 1)),
+      subtitle = paste("Lowest Life Expectancy"),
       color = "orange",
       icon = icon("down-long")
     )
@@ -363,9 +385,9 @@ server <- function(input, output) {
         x = "Life Expectancy (years)",
         title = paste(
           "Top 10",
-          "<span style='color:#002240'>Highest</span>",
+          "<span style='color:#002240;'><b>Highest</b></span>",
           "and",
-          "<span style='color:#83d4d4'>Lowest</span>",
+          "<span style='color:#83d4d4;'><b>Lowest</b></span>",
           "Life Expectancies in", chosen_year()
         ),
         caption = "Source: <i>gapminder</i>."
@@ -423,7 +445,7 @@ server <- function(input, output) {
     if (chosen_country_line_1() != "None") {
       p2 <- p2 +
         geom_line(
-          data = gapminder_grouped %>% filter(country == chosen_country_line_1()),
+          data = gapminder_grouped |> filter(country == chosen_country_line_1()),
           aes(y = life_exp_avg, x = year, group = country),
           color = LINE_1_COL,
           linewidth = 2
@@ -442,7 +464,7 @@ server <- function(input, output) {
     if (chosen_country_line_2() != "None") {
       p2 <- p2 +
         geom_line(
-          data = gapminder_grouped %>% filter(country == chosen_country_line_2()),
+          data = gapminder_grouped |> filter(country == chosen_country_line_2()),
           aes(y = life_exp_avg, x = year, group = country),
           color = LINE_2_COL,
           linewidth = 2
