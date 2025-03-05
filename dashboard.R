@@ -3,10 +3,10 @@
 
 ### TO-DO ###
 
-#✅ 1 Make a gighlight (whole gapminder must be used) 
+#✅ 1 Make a ghghlight (whole gapminder must be used) 
 #   1a Correct that when a country highlighted already exist on the plot, it appears on the top not in the middle ❌
-#✅ 2 Make a second tabItem with lineplot (also with highlight) - two countries to compare
-#✅ 3 On the third  TtbItem, make a dumbebll plot (1950-2007, 10 highest / lowest)
+#✅ 2 Make a second abItem with lineplot (also with highlight) - two countries to compare
+#✅ 3 On the third tbaItem, make a dumbebll plot (1950-2007, 10 highest / lowest)
 #   4 Put the titles of plots and context to the actual box titles, it would be nicer
 #   5 Make dumbbell plot customizable - but in what way? (How many top and lowest countries to show?)
 #   6 Add average numbers to value boxes first page
@@ -363,7 +363,7 @@ server <- function(input, output) {
         x = "Life Expectancy (years)",
         title = paste(
           "Top 10",
-          "<span style='color:#8a2be2'>Highest</span>",
+          "<span style='color:#002240'>Highest</span>",
           "and",
           "<span style='color:#83d4d4'>Lowest</span>",
           "Life Expectancies in", chosen_year()
@@ -460,45 +460,55 @@ server <- function(input, output) {
 
     return(p2)
   })
+  
+  # Difference subset
+  diff_df <- gapminder |> 
+    filter(year == 1952 | year == 2007) |> 
+    pivot_wider(names_from = year, 
+                values_from = lifeExp,
+                id_cols = country,
+                names_prefix = "lifeExp_") |>
+    mutate(
+      diff = lifeExp_2007 - lifeExp_1952
+    )
 
   output$plot_dumbbell_largest <- renderPlot({
     
-    
+
     ## Biggest change 10
     biggest_change_countries <- diff_df |> 
-      arrange(desc(diff)) |> 
+      arrange(abs(diff)) |> 
       slice_max(n = 10, order_by = diff) |> 
       distinct(country, .keep_all = TRUE)
-
-    ## biggest diffs plot
-    biggest_change_countries |> 
-      ggplot() +
-      geom_segment(aes(y = reorder(country, abs(lifeExp_2007 - lifeExp_1952)), 
-                       yend = reorder(country, abs(lifeExp_2007 - lifeExp_1952)),
-                       x = lifeExp_1952, xend = lifeExp_2007)) +
-      geom_point(aes(x = lifeExp_1952, 
-                     y = reorder(country, abs(lifeExp_2007 - lifeExp_1952)),
-                     fill = country),
-                 color = "black",
-                 size = 4,
-                 shape = 21) +
-      geom_point(aes(x = lifeExp_2007, 
-                     y = reorder(country, abs(lifeExp_2007 - lifeExp_1952)),
-                     fill = country),
-                 color = "black",
-                 size = 4,
-                 shape = 21) +
-      theme(
-        legend.position = "none"
-      ) +
-      labs(
-        y = NULL,
-        x = "Life Expectancy",
-        title = "Largest Differences in Life Expectancies 1952 - 2007",
-        subtitle = "Top 10 countries"
-      ) +
-      scale_fill_manual(values = my_colors) +
-      my_theme
+      
+      biggest_change_countries |> 
+        ggplot() +
+        geom_segment(aes(y = reorder(country, abs(lifeExp_2007 - lifeExp_1952)), 
+                         yend = reorder(country, abs(lifeExp_2007 - lifeExp_1952)),
+                         x = lifeExp_1952, xend = lifeExp_2007)) +
+        geom_point(aes(x = lifeExp_1952, 
+                       y = reorder(country, abs(lifeExp_2007 - lifeExp_1952)),
+                       fill = country),
+                   color = "black",
+                   size = 4,
+                   shape = 21) +
+        geom_point(aes(x = lifeExp_2007, 
+                       y = reorder(country, abs(lifeExp_2007 - lifeExp_1952)),
+                       fill = country),
+                   color = "black",
+                   size = 4,
+                   shape = 21) +
+        theme(
+          legend.position = "none"
+        ) +
+        labs(
+          y = NULL,
+          x = "Life Expectancy",
+          title = "Largest Differences in Life Expectancies 1952 - 2007",
+          subtitle = "Top 10 countries"
+        ) +
+        scale_fill_manual(values = my_colors) +
+        my_theme
     
     
   })
@@ -507,6 +517,11 @@ server <- function(input, output) {
   
   
   output$plot_dumbbell_smallest <- renderPlot({
+    
+    smallest_change_countries <- diff_df |> 
+      arrange(abs(diff)) |> 
+      slice_min(n = 10, order_by = diff) |> 
+      distinct(country, .keep_all = TRUE)
     
     ## Lowest diffs
     smallest_change_countries |> 
