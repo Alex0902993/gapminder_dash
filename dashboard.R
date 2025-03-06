@@ -3,15 +3,13 @@
 
 ### TO-DO ###
 
-#   Correct that when a country highlighted already exist on the plot, it appears on the top not in the middle ❌
-#   Make dumbbell plot customizable - but in what way? (How many top and lowest countries to show?)
-#   dd value boxes to the second tab (chosen countries and the average)
-#   To dumbell - add which to show (lowest or highest) and how many countries per plot
+#   Correct that when a country highlighted already exist on the plot, it appears on the top not in the middle
 #####
 
 # Packages
 library(shinydashboard)
 library(shinydashboardPlus)
+library(shinyWidgets)
 library(fresh)
 library(shiny)
 library(gapminder)
@@ -41,7 +39,7 @@ app_theme <- create_theme(
     light_blue = "#002240", # primary
     red = "#d73925", # danger
     green = "#29a13a", # success
-    yellow = "#F9CB77", # warning
+    yellow = "#F9CB77" # warning
     #    aqua = "#002240"  # info status
   ),
   adminlte_sidebar(
@@ -77,11 +75,11 @@ my_theme <- theme(
 
 my_colors <- colorRampPalette(brewer.pal(12, "Set3"))(20)
 
-#### DAHSBOARD ####
+#### DAHSBOARD ################################################################
 
 ## Header
 header <- dashboardHeader(
-  title = "Life Expectancy"
+  title = tagList(icon("earth-americas"), "Life Expectancy")
   #  ,controlbarIcon = icon("circle-info")) # only if left sidebar exists
 )
 ## Sidebar
@@ -103,6 +101,17 @@ body <- dashboardBody(
         background: #002240;
         color: #F5F5F5;
       }
+      .control-label {
+        color: grey;
+      }
+      
+      .bg-maroon > div:nth-child(1) > h3:nth-child(1) {
+      font-size: 18px !important;
+      }
+      
+      .bg-teal > div:nth-child(1) > h3:nth-child(1) {
+      font-size: 18px !important;
+      }
     "
   )),
   tabItems(
@@ -112,8 +121,9 @@ body <- dashboardBody(
         column(
           3,
           box(
+            title = "Highlight a country",
             width = 12,
-            solidHeader = FALSE,
+            solidHeader = TRUE,
             status = "primary",
             selectInput(
               inputId = "year",
@@ -131,7 +141,7 @@ body <- dashboardBody(
             width = 12,
             solidHeader = TRUE,
             title = "Life Expectancy",
-            status = "primary",
+            status = "info",
             p("Human life expectancy is a statistical measure of the estimate of the average remaining years of life at a given age. The most commonly used measure is life expectancy at birth (LEB, or in demographic notation e0, where ex denotes the average life remaining at age x)."),
             p("Cohort LEB is the mean length of life of a birth cohort (in this case, all individuals born in a given year) and can be computed only for cohorts born so long ago that all their members have died."),
             tags$a(href = "https://www.wikiwand.com/en/articles/Life_expectancy", "Wikipedia")
@@ -140,15 +150,15 @@ body <- dashboardBody(
         column(
           9,
           valueBoxOutput(
-            "average_life_exp",
+            "average_life_exp"
             #  width = 3
           ),
           valueBoxOutput(
-            "highest_country",
+            "highest_country"
             # width = 3
           ),
           valueBoxOutput(
-            "lowest_country",
+            "lowest_country"
             #  width = 3
           ),
           box(
@@ -167,8 +177,9 @@ body <- dashboardBody(
         column(
           3,
           box(
+            title = "Highlight countries",
             width = 12,
-            solidHeader = FALSE,
+            solidHeader = TRUE,
             status = "primary",
             selectInput(
               inputId = "country_line_1",
@@ -181,6 +192,44 @@ body <- dashboardBody(
               choices = c("None", as.character(unique(gapminder$country))),
               selected = "None"
             )
+          ),
+          div(
+            valueBoxOutput("highlight_cntr_1", width = 12)
+          ),
+          div(
+            valueBoxOutput("highlight_cntr_2", width = 12)
+          )
+        ),
+      column(
+        9,
+        box(
+          width = 12,
+          solidHeader = FALSE,
+          color = GREY,
+          status = "primary",
+          plotOutput("plot_line", height = "550px")
+        )
+      )
+      ) # close fluid row
+    ),
+    tabItem(
+      "dumbbell",
+      fluidRow(
+        column(
+          3,
+          box(
+            title = "Choose a plot",
+            width = 12,
+            solidHeader = TRUE,
+            color = GREY,
+            status = "primary",
+            radioGroupButtons(
+              inputId = "which_plot",
+              label = "Select whether to show the smallest or the largest differences",
+              choices = c("Largest", "Smallest"),
+              selected = "Largest",
+              status = "success"
+            ) # can be changed with custom-class; btn-custom-class
           )
         ),
         column(
@@ -188,37 +237,16 @@ body <- dashboardBody(
           box(
             width = 12,
             solidHeader = FALSE,
-            color = GREY,
             status = "primary",
-            plotOutput("plot_line", height = "550px")
+            color = GREY,
+            uiOutput("dumbbell_plot")
           )
         )
-      )
-    ),
-    tabItem(
-      "dumbbell",
-      fluidRow(
-        column(
-          9,
-          box(
-            width = 12,
-            solidHeader = FALSE,
-            color = GREY,
-            status = "primary",
-            plotOutput("plot_dumbbell_largest")
-          ),
-        box(
-          width = 12, 
-          silidheader = FALSE,
-          color = GREY,
-          status = "primary",
-          plotOutput("plot_dumbbell_smallest")
-        )
-        )
-      )
-    )
-  )
-)
+      ) # end fluidRow
+    ) # end tabItem
+  ) # end tabItems
+) # end body
+
 
 footer <- dashboardFooter(
   left = tags$b("Made with dashboardPlus")
@@ -239,6 +267,7 @@ ui <- dashboardPage(
 )
 
 ## Server
+
 server <- function(input, output) {
   # Set global theme
   theme_set(theme_bw(base_size = 17, base_family = "Arial"))
@@ -288,36 +317,38 @@ server <- function(input, output) {
 
   # Reactive expression for world average life expectancy
   that_year_avg <- reactive({
-    gapminder |> 
+    gapminder |>
       filter(year == chosen_year()) |>
       summarize(M = round(mean(lifeExp), 2)) |>
       pull(M)
   })
-  
+
   # Reactive expressions for the highest and lowest expectancy (value and country)
   that_year_max <- reactive({
-    gapminder |> 
+    gapminder |>
       filter(year == chosen_year()) |>
-      slice_max(order_by = lifeExp) |> 
+      slice_max(order_by = lifeExp) |>
       pull(lifeExp)
   })
-  
-  
+
+
   that_year_min <- reactive({
-    gapminder |> 
+    gapminder |>
       filter(year == chosen_year()) |>
-      slice_min(order_by = lifeExp) |> 
+      slice_min(order_by = lifeExp) |>
       pull(lifeExp)
   })
-  
+
   ## Highest and lowest country
   country_max <- reactive({
-    gap_full() |> slice_max(order_by = lifeExp) |>
+    gap_full() |>
+      slice_max(order_by = lifeExp) |>
       pull(country)
   })
-  
+
   country_min <- reactive({
-    gap_full() |> slice_min(order_by = lifeExp) |>
+    gap_full() |>
+      slice_min(order_by = lifeExp) |>
       pull(country)
   })
 
@@ -352,7 +383,11 @@ server <- function(input, output) {
     )
   })
 
-  # Render the plot
+
+
+  # Main plot ---------------------------------------------------------------
+
+
   output$plot_high_low <- renderPlot({
     ggplot(
       data = gap_full(),
@@ -397,7 +432,12 @@ server <- function(input, output) {
   })
 
 
-  # Line plot
+
+
+  # Line plot ---------------------------------------------------------------
+
+
+
   gapminder_grouped <- gapminder |>
     group_by(country, year) |>
     summarise(
@@ -414,6 +454,25 @@ server <- function(input, output) {
     req(input$country_line_2)
     input$country_line_2
   })
+  
+  # Reactive expressions to calculate averages
+  country_1_avg <- reactive({
+    gapminder_grouped |> 
+    filter(country == chosen_country_line_1()) |> 
+    summarize(
+      grand_mean = mean(life_exp_avg)
+    ) |> 
+    pull(grand_mean)
+    })
+  
+  country_2_avg <- reactive({
+    gapminder_grouped |> 
+    filter(country == chosen_country_line_2()) |> 
+    summarize(
+      grand_mean = mean(life_exp_avg)
+    ) |> 
+    pull(grand_mean)
+    })
 
   # Render the plot based on the selections
   output$plot_line <- renderPlot({
@@ -435,7 +494,7 @@ server <- function(input, output) {
         y = "Average Life Expectancy",
         x = NULL,
         caption = "Source: <i>gapminder</i>.",
-        title = "Life Expectancy by Country 1952 to 2007",
+        title = "Life Expectancy by Country: 1952 to 2007",
         subtitle = "Black line is the Global Average"
       ) +
       coord_cartesian(clip = "off") +
@@ -482,109 +541,153 @@ server <- function(input, output) {
 
     return(p2)
   })
-  
-  # Dumbbell Plots
-  
+
+  output$highlight_cntr_1 <- renderValueBox({
+    valueBox(
+      value = paste(chosen_country_line_1(), round(country_1_avg(), 1)),
+      subtitle = "",
+      color = "maroon"
+    #  icon = icon("up-long")
+    )
+  })
+
+  output$highlight_cntr_2 <- renderValueBox({
+    valueBox(
+      value = paste(chosen_country_line_2(), round(country_2_avg(), 1)),
+      subtitle = "",
+      color = "teal"
+     # icon = icon("down-long")
+    )
+  })
+
+
+
+
+  # Dumbbell plots ----------------------------------------------------------
+
+
+
   ## Difference subset
   diff_df <- gapminder |>
-    filter(year == 1952 | year == 2007) |>  
-    pivot_wider(id_cols = country,
-                names_prefix = "lifeExp_",
-                names_from = year,
-                values_from = lifeExp) |>
+    filter(year == 1952 | year == 2007) |>
+    pivot_wider(
+      id_cols = country,
+      names_prefix = "lifeExp_",
+      names_from = year,
+      values_from = lifeExp
+    ) |>
     mutate(
       diff = lifeExp_2007 - lifeExp_1952
-    ) 
+    )
 
+  output$dumbbell_plot <- renderUI({
+    req(diff_df)
 
-  output$plot_dumbbell_largest <- renderPlot({
-    
+    if (input$which_plot == "Largest") {
+      output$plot_dumbbell_largest <- renderPlot({
+        ## Biggest change 10
+        biggest_change_countries <- diff_df |>
+          arrange(abs(diff)) |>
+          slice_max(n = 10, order_by = diff) |>
+          distinct(country, .keep_all = TRUE)
 
-    ## Biggest change 10
-    biggest_change_countries <- diff_df |> 
-      arrange(abs(diff)) |> 
-      slice_max(n = 10, order_by = diff) |> 
-      distinct(country, .keep_all = TRUE)
-      
-      biggest_change_countries |> 
-        ggplot() +
-        geom_segment(aes(y = reorder(country, abs(lifeExp_2007 - lifeExp_1952)), 
-                         yend = reorder(country, abs(lifeExp_2007 - lifeExp_1952)),
-                         x = lifeExp_1952, xend = lifeExp_2007)) +
-        geom_point(aes(x = lifeExp_1952, 
-                       y = reorder(country, abs(lifeExp_2007 - lifeExp_1952)),
-                       fill = country),
-                   color = "black",
-                   size = 4,
-                   shape = 21) +
-        geom_point(aes(x = lifeExp_2007, 
-                       y = reorder(country, abs(lifeExp_2007 - lifeExp_1952)),
-                       fill = country),
-                   color = "black",
-                   size = 4,
-                   shape = 21) +
-        theme(
-          legend.position = "none"
-        ) +
-        labs(
-          y = NULL,
-          x = "Life Expectancy",
-          title = "Largest Differences in Life Expectancies 1952 - 2007",
-          subtitle = "Top 10 countries"
-        ) +
-        scale_fill_manual(values = my_colors) +
-        my_theme
-    
-    
+        biggest_change_countries |>
+          ggplot() +
+          geom_segment(aes(
+            y = reorder(country, abs(lifeExp_2007 - lifeExp_1952)),
+            yend = reorder(country, abs(lifeExp_2007 - lifeExp_1952)),
+            x = lifeExp_1952, xend = lifeExp_2007
+          )) +
+          geom_point(
+            aes(
+              x = lifeExp_1952,
+              y = reorder(country, abs(lifeExp_2007 - lifeExp_1952)),
+              fill = country
+            ),
+            color = "black",
+            size = 4,
+            shape = 21
+          ) +
+          geom_point(
+            aes(
+              x = lifeExp_2007,
+              y = reorder(country, abs(lifeExp_2007 - lifeExp_1952)),
+              fill = country
+            ),
+            color = "black",
+            size = 4,
+            shape = 21
+          ) +
+          theme(
+            legend.position = "none"
+          ) +
+          labs(
+            y = NULL,
+            x = "Life Expectancy",
+            title = "Largest Differences in Life Expectancies 1952 - 2007",
+            subtitle = "Top 10 countries",
+            caption = "Source: <i>gapminder</i>."
+          ) +
+          scale_fill_manual(values = my_colors) +
+          my_theme
+      })
+    } else {
+      output$plot_dumbbell_smallest <- renderPlot({
+        smallest_change_countries <- diff_df |>
+          arrange(abs(diff)) |>
+          slice_min(n = 10, order_by = diff) |>
+          distinct(country, .keep_all = TRUE)
+
+        ## Lowest diffs
+        smallest_change_countries <- diff_df |>
+          arrange(desc(diff)) |>
+          slice_max(n = 10, order_by = -diff) |>
+          distinct(country, .keep_all = TRUE)
+
+        ## biggest diffs plot
+        smallest_change_countries |>
+          ggplot() +
+          geom_segment(aes(
+            y = reorder(country, abs(lifeExp_2007 - lifeExp_1952)),
+            yend = reorder(country, abs(lifeExp_2007 - lifeExp_1952)),
+            x = lifeExp_1952, xend = lifeExp_2007
+          )) +
+          geom_point(
+            aes(
+              x = lifeExp_1952,
+              y = reorder(country, abs(lifeExp_2007 - lifeExp_1952)),
+              fill = country
+            ),
+            color = "black",
+            size = 4,
+            shape = 21
+          ) +
+          geom_point(
+            aes(
+              x = lifeExp_2007,
+              y = reorder(country, abs(lifeExp_2007 - lifeExp_1952)),
+              fill = country
+            ),
+            color = "black",
+            size = 4,
+            shape = 21
+          ) +
+          theme(
+            legend.position = "none"
+          ) +
+          labs(
+            y = NULL,
+            x = "Life Expectancy",
+            title = "Smallest Differences in Life Expectancies 1952 - 2007",
+            subtitle = "Top 10 countries",
+            caption = "Source: <i>gapminder</i>."
+          ) +
+          scale_fill_manual(values = my_colors) +
+          my_theme
+      })
+    }
   })
-  
-  
-  output$plot_dumbbell_smallest <- renderPlot({
-    
-    smallest_change_countries <- diff_df |> 
-      arrange(abs(diff)) |> 
-      slice_min(n = 10, order_by = diff) |> 
-      distinct(country, .keep_all = TRUE)
-    
-    ## Lowest diffs
-    smallest_change_countries <- diff_df |> 
-      arrange(desc(diff)) |> 
-      slice_max(n = 10, order_by = -diff) |> 
-      distinct(country, .keep_all = TRUE)
-    
-    ## biggest diffs plot
-    smallest_change_countries |> 
-      ggplot() +
-      geom_segment(aes(y = reorder(country, abs(lifeExp_2007 - lifeExp_1952)), 
-                       yend = reorder(country, abs(lifeExp_2007 - lifeExp_1952)),
-                       x = lifeExp_1952, xend = lifeExp_2007)) +
-      geom_point(aes(x = lifeExp_1952, 
-                     y = reorder(country, abs(lifeExp_2007 - lifeExp_1952)),
-                     fill = country),
-                 color = "black",
-                 size = 4,
-                 shape = 21) +
-      geom_point(aes(x = lifeExp_2007, 
-                     y = reorder(country, abs(lifeExp_2007 - lifeExp_1952)),
-                     fill = country),
-                 color = "black",
-                 size = 4,
-                 shape = 21) +
-      theme(
-        legend.position = "none"
-      ) +
-      labs(
-        y = NULL,
-        x = "Life Expectancy",
-        title = "Smallest Differences in Life Expectancies 1952 - 2007",
-        subtitle = "Top 10 countries"
-      ) +
-      scale_fill_manual(values = my_colors) +
-      my_theme
-    
-    
-  })
-}
+} # server end
 
 
 ## Run
